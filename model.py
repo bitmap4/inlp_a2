@@ -28,6 +28,10 @@ class RNNLM(nn.Module):
         out, hidden = self.rnn(embeds, hidden)
         out = self.fc(out[:, -1, :])
         return torch.log_softmax(out, dim=1), hidden
+    
+    def init_hidden(self, batch_size):
+        device = next(self.parameters()).device
+        return torch.zeros(1, batch_size, self.rnn.hidden_size).to(device)
 
 class LSTMLM(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim):
@@ -41,3 +45,8 @@ class LSTMLM(nn.Module):
         out, hidden = self.lstm(embeds, hidden)
         out = self.fc(out[:, -1, :])
         return torch.log_softmax(out, dim=1), hidden
+    
+    def init_hidden(self, batch_size):
+        device = next(self.parameters()).device
+        return (torch.zeros(1, batch_size, self.lstm.hidden_size).to(device),
+                torch.zeros(1, batch_size, self.lstm.hidden_size).to(device))

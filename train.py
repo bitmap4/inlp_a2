@@ -37,6 +37,10 @@ class TextDataset(Dataset):
         return self.data[idx]
 
 def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidden_dim=128, epochs=10, val_split=0.1):
+    # Set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
     # Initialize dataset and split into train/val
     full_dataset = TextDataset(corpus_path, context_size)
     vocab_size = len(full_dataset.vocab)
@@ -71,17 +75,29 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     best_val_loss = float('inf')
     best_model_state = None
 
+    # Move model to device
+    model = model.to(device)
+    
     # Training loop
     for epoch in range(epochs):
         # Training phase
         model.train()
         train_loss = 0
         for contexts, targets in train_loader:
+            # Move data to device
+            contexts = contexts.to(device)
+            targets = targets.to(device)
+            
             optimizer.zero_grad()
             if model_type == 'f':
                 log_probs = model(contexts)
             else:
                 hidden = model.init_hidden(contexts.size(0))
+                # Move hidden state to device for RNN/LSTM
+                if isinstance(hidden, tuple):
+                    hidden = tuple(h.to(device) for h in hidden)
+                else:
+                    hidden = hidden.to(device)
                 log_probs, _ = model(contexts.unsqueeze(1), hidden)
             loss = loss_fn(log_probs, targets)
             loss.backward()
@@ -94,10 +110,19 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
         val_loss = 0
         with torch.no_grad():
             for contexts, targets in val_loader:
+                # Move data to device
+                contexts = contexts.to(device)
+                targets = targets.to(device)
+                
                 if model_type == 'f':
                     log_probs = model(contexts)
                 else:
                     hidden = model.init_hidden(contexts.size(0))
+                    # Move hidden state to device for RNN/LSTM
+                    if isinstance(hidden, tuple):
+                        hidden = tuple(h.to(device) for h in hidden)
+                    else:
+                        hidden = hidden.to(device)
                     log_probs, _ = model(contexts.unsqueeze(1), hidden)
                 loss = loss_fn(log_probs, targets)
                 val_loss += loss.item()
@@ -129,6 +154,9 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--corpus_path", required=True, help="Path to corpus file")
     parser.add_argument("model_type", choices=['f', 'r', 'l'], help="Model type: f for FFNN, r for RNN, l for LSTM")
     parser.add_argument("-n", "--context_size", type=int, default=3, help="Size of context for model training")
+    parser.add_argument("-e", "--embed_dim", type=int, default=100, help="Embedding dimension")
+    parser.add_argument("-d", "--hidden_dim", type=int, default=128, help="Hidden dimension")
+    parser.add_argument("-ep", "--epochs", type=int, default=10, help="Number of epochs")
     args = parser.parse_args()
     
-    train_model(args.corpus_path, args.model_type, args.context_size)
+    train_model(args.corpus_path, args.model_type, args.context_size, args.embed_dim, args.hidden_dim, args.epochs)

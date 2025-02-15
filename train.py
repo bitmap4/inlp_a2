@@ -98,7 +98,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
                     hidden = tuple(h.to(device) for h in hidden)
                 else:
                     hidden = hidden.to(device)
-                log_probs, _ = model(contexts.unsqueeze(1), hidden)
+                log_probs, _ = model(contexts, hidden)
             loss = loss_fn(log_probs, targets)
             loss.backward()
             optimizer.step()
@@ -123,7 +123,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
                         hidden = tuple(h.to(device) for h in hidden)
                     else:
                         hidden = hidden.to(device)
-                    log_probs, _ = model(contexts.unsqueeze(1), hidden)
+                    log_probs, _ = model(contexts, hidden)
                 loss = loss_fn(log_probs, targets)
                 val_loss += loss.item()
         val_loss = val_loss / len(val_loader)

@@ -102,7 +102,7 @@ def main():
     predictions = [(vocab[idx], prob) for idx, prob in zip(indices, probs)]
     
     # Format output
-    print("Output:", " ".join(f"{word} {prob:.2f}" for word, prob in predictions))
+    print("Output:", " ".join(f"{word} {prob}" for word, prob in predictions))
 
 if __name__ == "__main__":
     main()

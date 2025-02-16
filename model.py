@@ -14,7 +14,7 @@ class FFNNLM(nn.Module):
         out = torch.relu(self.fc1(embeds))
         out = self.dropout(out)
         out = self.fc2(out)
-        return torch.log_softmax(out, dim=1)
+        return torch.log_softmax(out / 0.7, dim=1)
 
 class RNNLM(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim):
@@ -29,7 +29,7 @@ class RNNLM(nn.Module):
         out, hidden = self.rnn(embeds, hidden)
         out = self.dropout(out[:, -1, :])
         out = self.fc(out)
-        return torch.log_softmax(out, dim=1), hidden
+        return torch.log_softmax(out / 0.7, dim=1), hidden
     
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device
@@ -42,13 +42,14 @@ class LSTMLM(nn.Module):
         self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
         self.dropout = nn.Dropout(0.5)
+        self.hidden_dim = hidden_dim
         
     def forward(self, x, hidden):
         embeds = self.embed(x)
         out, hidden = self.lstm(embeds, hidden)
         out = self.dropout(out[:, -1, :])
         out = self.fc(out)
-        return torch.log_softmax(out, dim=1), hidden
+        return torch.log_softmax(out / 0.7, dim=1), hidden
     
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device

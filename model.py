@@ -22,11 +22,13 @@ class RNNLM(nn.Module):
         self.embed = nn.Embedding(vocab_size, embed_dim)
         self.rnn = nn.RNN(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
+        self.dropout = nn.Dropout(0.5)
         
     def forward(self, x, hidden):
         embeds = self.embed(x)
         out, hidden = self.rnn(embeds, hidden)
-        out = self.fc(out[:, -1, :])
+        out = self.dropout(out[:, -1, :])
+        out = self.fc(out)
         return torch.log_softmax(out, dim=1), hidden
     
     def init_hidden(self, batch_size):
@@ -39,11 +41,13 @@ class LSTMLM(nn.Module):
         self.embed = nn.Embedding(vocab_size, embed_dim)
         self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
+        self.dropout = nn.Dropout(0.5)
         
     def forward(self, x, hidden):
         embeds = self.embed(x)
         out, hidden = self.lstm(embeds, hidden)
-        out = self.fc(out[:, -1, :])
+        out = self.dropout(out[:, -1, :])
+        out = self.fc(out)
         return torch.log_softmax(out, dim=1), hidden
     
     def init_hidden(self, batch_size):

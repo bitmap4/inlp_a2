@@ -4,7 +4,7 @@ import torch.nn as nn
 class FFNNLM(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim, context_size):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=1)
         self.fc1 = nn.Linear(context_size * embed_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, vocab_size)
         self.dropout = nn.Dropout(0.5)
@@ -19,7 +19,7 @@ class FFNNLM(nn.Module):
 class RNNLM(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=1)
         self.rnn = nn.RNN(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
         self.dropout = nn.Dropout(0.5)
@@ -38,7 +38,7 @@ class RNNLM(nn.Module):
 class LSTMLM(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=1)
         self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
         self.dropout = nn.Dropout(0.5)

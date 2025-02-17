@@ -12,10 +12,10 @@ class TextDataset(Dataset):
             text = f.read()
         
         # Use tokenizer to get sentences
-        sentences = tokenize(text)
+        self.sentences = tokenize(text)
         
-        # Build vocabulary from all sentences
-        self.vocab = defaultdict(lambda: 0)  # Default to <unk>
+        # Build vocabulary
+        self.vocab = defaultdict(lambda: 0)
         word_counts = defaultdict(int)
         
         # Add special tokens
@@ -23,39 +23,47 @@ class TextDataset(Dataset):
         self.vocab['<s>'] = 1
         self.vocab['</s>'] = 2
         
-        # Count words
-        for sentence in sentences:
+        # Count words from all sentences
+        for sentence in self.sentences:
             for word in sentence:
                 word_counts[word] += 1
         
-        # Assign indices (starting from 3 as 0,1,2 are reserved)
+        # Assign indices
         for idx, (word, count) in enumerate(word_counts.items(), start=3):
             self.vocab[word] = idx
             
-        # Process each sentence into context-target pairs
+        # Create context-target pairs sentence by sentence
         self.data = []
-        for sentence in sentences:
-            # Add sentence boundaries for FFNN
-            padded_sentence = ['<s>'] * (context_size-1) + sentence + ['</s>']
-            
+        self.sentence_boundaries = []  # Store start index of each sentence in data
+        
+        for sentence in self.sentences:
             # Convert sentence to indices
-            sent_indices = [self.vocab.get(word, 0) for word in padded_sentence]
+            sent_indices = [self.vocab.get(word, 0) for word in sentence]
             
-            # Create context-target pairs
-            for i in range(len(sent_indices)-context_size+1):
+            self.sentence_boundaries.append(len(self.data))
+            
+            # Create context-target pairs for this sentence
+            for i in range(len(sent_indices) - context_size + 1):
                 context = sent_indices[i:i+context_size-1]
                 target = sent_indices[i+context_size-1]
                 self.data.append((torch.tensor(context), torch.tensor(target)))
         
-        # Store original sentences for split purposes
-        shuffle(sentences)
-        self.sentences = sentences
+        # Add final boundary
+        self.sentence_boundaries.append(len(self.data))
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
+        if idx < 0 or idx >= len(self.data):
+            raise IndexError("Index out of range")
         return self.data[idx]
+
+    def get_sentence_indices(self, sentence_idx):
+        """Get all data indices for a given sentence"""
+        start = self.sentence_boundaries[sentence_idx]
+        end = self.sentence_boundaries[sentence_idx + 1]
+        return list(range(start, end))
 
 def calculate_perplexity(model, data_loader, device, model_type):
     model.eval()
@@ -95,40 +103,37 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     full_dataset = TextDataset(corpus_path, context_size)
     vocab_size = len(full_dataset.vocab)
     
-    # Get total number of sentences
-    total_sentences = len(full_dataset.sentences)
+    # Get sentence indices for splitting
+    num_sentences = len(full_dataset.sentences)
+    sentence_indices = list(range(num_sentences))
+    shuffle(sentence_indices)  # Shuffle sentences
     
-    # Calculate split sizes for sentences
-    test_size = min(1000, total_sentences // 3)  # 1000 sentences or 1/3 if less
-    remaining_size = total_sentences - test_size
-    val_size = int(remaining_size * val_split)
-    train_size = remaining_size - val_size
+    # Split sentences
+    test_sentences = sentence_indices[:1000]  # First 1000 sentences for test
+    remaining_sentences = sentence_indices[1000:]
+    val_size = int(len(remaining_sentences) * val_split)
+    val_sentences = remaining_sentences[:val_size]
+    train_sentences = remaining_sentences[val_size:]
     
-    # Create sentence indices for splits
-    all_indices = list(range(total_sentences))
-    train_indices = all_indices[:train_size]
-    val_indices = all_indices[train_size:train_size+val_size]
-    test_indices = all_indices[-test_size:]
+    # Get data indices for each split
+    train_indices = []
+    val_indices = []
+    test_indices = []
     
-    # Function to get data points corresponding to sentence indices
-    def get_sentence_data_points(indices):
-        data_points = []
-        current_idx = 0
-        for i, sentence in enumerate(full_dataset.sentences):
-            sentence_length = len(sentence) + context_size  # Add context_size for padding
-            if i in indices:
-                start_idx = current_idx
-                end_idx = current_idx + sentence_length - context_size + 1
-                data_points.extend(range(start_idx, end_idx))
-            current_idx += sentence_length - context_size + 1
-        return data_points
+    for sent_idx in train_sentences:
+        train_indices.extend(full_dataset.get_sentence_indices(sent_idx))
+    for sent_idx in val_sentences:
+        val_indices.extend(full_dataset.get_sentence_indices(sent_idx))
+    for sent_idx in test_sentences:
+        test_indices.extend(full_dataset.get_sentence_indices(sent_idx))
     
-    # Create subset datasets based on sentence indices
-    train_dataset = torch.utils.data.Subset(full_dataset, get_sentence_data_points(train_indices))
-    val_dataset = torch.utils.data.Subset(full_dataset, get_sentence_data_points(val_indices))
-    test_dataset = torch.utils.data.Subset(full_dataset, get_sentence_data_points(test_indices))
+    # Create dataset splits
+    train_dataset = torch.utils.data.Subset(full_dataset, train_indices)
+    val_dataset = torch.utils.data.Subset(full_dataset, val_indices)
+    test_dataset = torch.utils.data.Subset(full_dataset, test_indices)
     
-    print(f"Dataset splits (sentences): Train={train_size}, Val={val_size}, Test={test_size}")
+    print(f"Dataset splits (sentences): Train={len(train_sentences)}, Val={len(val_sentences)}, Test={len(test_sentences)}")
+    print(f"Dataset splits (samples): Train={len(train_indices)}, Val={len(val_indices)}, Test={len(test_indices)}")
     
     # Create data loaders
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)

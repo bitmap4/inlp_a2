@@ -163,7 +163,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     val_dataset = torch.utils.data.Subset(full_dataset, val_indices)
     test_dataset = torch.utils.data.Subset(full_dataset, test_indices)
     
-    print(f"Dataset splits (sentences): Train={len(train_sentences)}, Val={len(val_sentences)}, Test={len(test_sentences)}")
+    # print(f"Dataset splits (sentences): Train={len(train_sentences)}, Val={len(val_sentences)}, Test={len(test_sentences)}")
     # print(f"Dataset splits (samples): Train={len(train_indices)}, Val={len(val_indices)}, Test={len(test_indices)}")
     
     # Create data loaders
@@ -269,7 +269,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     
     # Save checkpoint with additional metrics
     corpus_name = corpus_path.split('/')[-1].split('.')[0]
-    model_name = f"{model_type}{'_'+str(context_size) if model_type=='f' else ''}_{corpus_name}.pt"
+    model_name = f"{model_type}{'_'+str(context_size) if model_type=='f' else ''}_{corpus_name}"
     torch.save({
         'state_dict': model.state_dict(),
         'vocab': dict(full_dataset.vocab),
@@ -280,7 +280,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
         'hidden_dim': hidden_dim if model_type != 'f' else None,
         'embed_dim': embed_dim if model_type != 'f' else None,
         'dropout': dropout
-    }, f"models/{model_name}")
+    }, f"models/{model_name}.pt")
 
     # After final test perplexity is printed, perform sentence-wise evaluation for train and test sets
 

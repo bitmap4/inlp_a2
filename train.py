@@ -5,6 +5,7 @@ from collections import defaultdict
 from model import FFNNLM, RNNLM, LSTMLM
 from tokenizer import tokenize
 from random import shuffle
+import math
 
 class TextDataset(Dataset):
     def __init__(self, corpus_path, context_size=3):
@@ -96,6 +97,34 @@ def calculate_perplexity(model, data_loader, device, model_type):
     avg_nll = total_nll / total_words
     perplexity = torch.exp(torch.tensor(avg_nll)).item()
     return perplexity
+
+def compute_sentence_perplexity_sentence(model, dataset, sentence_idx, device, model_type):
+    """
+    Computes perplexity over one sentence using its context-target pairs.
+    Returns: sentence_perplexity, total negative log likelihood, number of words.
+    """
+    indices = dataset.get_sentence_indices(sentence_idx)
+    total_nll = 0.0
+    for i in indices:
+        context, target = dataset.data[i]
+        context = context.unsqueeze(0).to(device)  # (1, context_size)
+        # Forward pass: for FFNNLM or RNN/LSTM
+        if model_type == 'f':
+            log_probs = model(context)
+        else:
+            hidden = model.init_hidden(context.size(0))
+            if isinstance(hidden, tuple):
+                hidden = tuple(h.to(device) for h in hidden)
+            else:
+                hidden = hidden.to(device)
+            log_probs, _ = model(context, hidden)
+        # Compute negative log likelihood for the target token:
+        # (we assume target is a scalar index)
+        nll = -log_probs[0, target.item()]
+        total_nll += nll
+    avg_nll = total_nll / len(indices)
+    sentence_perplexity = math.exp(avg_nll)
+    return sentence_perplexity, total_nll, len(indices)
 
 def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidden_dim=128, epochs=10, val_split=0.1, dropout=0.5):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -240,6 +269,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     
     # Save checkpoint with additional metrics
     corpus_name = corpus_path.split('/')[-1].split('.')[0]
+    model_name = f"{model_type}{'_'+str(context_size) if model_type=='f' else ''}_{corpus_name}.pt"
     torch.save({
         'state_dict': model.state_dict(),
         'vocab': dict(full_dataset.vocab),
@@ -250,7 +280,40 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
         'hidden_dim': hidden_dim if model_type != 'f' else None,
         'embed_dim': embed_dim if model_type != 'f' else None,
         'dropout': dropout
-    }, f"models/{model_type}{'_'+str(context_size) if model_type=='f' else ''}_{corpus_name}.pt")
+    }, f"models/{model_name}")
+
+    # After final test perplexity is printed, perform sentence-wise evaluation for train and test sets
+
+    model.eval()  # Ensure model is in eval mode
+
+    # Sentence-level evaluation for the train set
+    train_total_nll = 0.0
+    train_total_words = 0
+    with open(f"results/{model_name}_train.txt", "w") as f_train:
+        for s in train_sentences:
+            sent_perplexity, sent_nll, word_count = compute_sentence_perplexity_sentence(
+                model, full_dataset, s, device, model_type)
+            sentence_text = " ".join(full_dataset.sentences[s])
+            f_train.write(f"Sentence: {sentence_text} | Perplexity: {sent_perplexity:.4f}\n")
+            train_total_nll += sent_nll
+            train_total_words += word_count
+        avg_train_perplexity = math.exp(train_total_nll / train_total_words)
+        f_train.write(f"\nAverage Train Perplexity: {avg_train_perplexity:.4f}\n")
+    
+    # Sentence-level evaluation for the test set
+    test_total_nll = 0.0
+    test_total_words = 0
+    corpus_name = corpus_path.split('/')[-1].split('.')[0]
+    with open(f"results/{model_name}_test.txt", "w") as f_test:
+        for s in test_sentences:
+            sent_perplexity, sent_nll, word_count = compute_sentence_perplexity_sentence(
+                model, full_dataset, s, device, model_type)
+            sentence_text = " ".join(full_dataset.sentences[s])
+            f_test.write(f"Sentence: {sentence_text} | Perplexity: {sent_perplexity:.4f}\n")
+            test_total_nll += sent_nll
+            test_total_words += word_count
+        avg_test_perplexity = math.exp(test_total_nll / test_total_words)
+        f_test.write(f"\nAverage Test Perplexity: {avg_test_perplexity:.4f}\n")
 
 if __name__ == "__main__":
     import argparse

@@ -23,6 +23,7 @@ class RNNLM(nn.Module):
         self.rnn = nn.RNN(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
         self.dropout = nn.Dropout(0.5)
+        self.hidden_dim = hidden_dim
         
     def forward(self, x, hidden):
         embeds = self.embed(x)

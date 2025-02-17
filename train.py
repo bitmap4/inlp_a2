@@ -32,20 +32,22 @@ class TextDataset(Dataset):
         for idx, (word, count) in enumerate(word_counts.items(), start=3):
             self.vocab[word] = idx
             
-        # Create context-target pairs sentence by sentence
+        # Create context-target pairs sentence by sentence with padding
         self.data = []
         self.sentence_boundaries = []  # Store start index of each sentence in data
         
         for sentence in self.sentences:
+            # Pad the sentence with (context_size-1) <s> tokens at the beginning
+            padded_sentence = ['<s>'] * (context_size - 1) + sentence + ['</s>']
             # Convert sentence to indices
-            sent_indices = [self.vocab.get(word, 0) for word in sentence]
+            sent_indices = [self.vocab.get(word, 0) for word in padded_sentence]
             
             self.sentence_boundaries.append(len(self.data))
             
-            # Create context-target pairs for this sentence
-            for i in range(len(sent_indices) - context_size + 1):
-                context = sent_indices[i:i+context_size-1]
-                target = sent_indices[i+context_size-1]
+            # Create context-target pairs for this padded sentence
+            for i in range(len(sent_indices) - context_size):
+                context = sent_indices[i:i+context_size]
+                target = sent_indices[i+context_size]
                 self.data.append((torch.tensor(context), torch.tensor(target)))
         
         # Add final boundary
@@ -133,7 +135,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     test_dataset = torch.utils.data.Subset(full_dataset, test_indices)
     
     print(f"Dataset splits (sentences): Train={len(train_sentences)}, Val={len(val_sentences)}, Test={len(test_sentences)}")
-    print(f"Dataset splits (samples): Train={len(train_indices)}, Val={len(val_indices)}, Test={len(test_indices)}")
+    # print(f"Dataset splits (samples): Train={len(train_indices)}, Val={len(val_indices)}, Test={len(test_indices)}")
     
     # Create data loaders
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
@@ -141,7 +143,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     
     if model_type == 'f':
-        model = FFNNLM(vocab_size, embed_dim, hidden_dim, context_size-1)
+        model = FFNNLM(vocab_size, embed_dim, hidden_dim, context_size)
     elif model_type == 'r':
         model = RNNLM(vocab_size, embed_dim, hidden_dim)
     elif model_type == 'l':
@@ -154,7 +156,7 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
         'embed_dim': embed_dim,
         'hidden_dim': hidden_dim,
         'context_size': context_size-1 if model_type == 'f' else None,
-        'weight_decay': 0.01
+        'weight_decay': 0.0001
     }
     
     # Add weight decay to the optimizer

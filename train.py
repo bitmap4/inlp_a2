@@ -155,10 +155,10 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
         'vocab_size': vocab_size,
         'embed_dim': embed_dim,
         'hidden_dim': hidden_dim,
-        'context_size': context_size-1 if model_type == 'f' else None,
+        'context_size': context_size if model_type == 'f' else None,
         'weight_decay': 0.0001
     }
-    
+
     # Add weight decay to the optimizer
     optimizer = torch.optim.Adam(model.parameters(), weight_decay=model_params['weight_decay'])
     loss_fn = nn.NLLLoss()

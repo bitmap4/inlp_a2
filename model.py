@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 
 class FFNNLM(nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim, context_size):
-        super().__init__()
+    def _init_(self, vocab_size, embed_dim, hidden_dim, context_size, dropout=0.5):
+        super()._init_()
         self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=1)
         self.fc1 = nn.Linear(context_size * embed_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, vocab_size)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
         
     def forward(self, x):
         embeds = self.embed(x).view(x.size(0), -1)
@@ -17,12 +17,12 @@ class FFNNLM(nn.Module):
         return torch.log_softmax(out / 0.7, dim=1)
 
 class RNNLM(nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim):
-        super().__init__()
+    def _init_(self, vocab_size, embed_dim, hidden_dim, dropout=0.5):
+        super()._init_()
         self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=1)
         self.rnn = nn.RNN(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
         self.hidden_dim = hidden_dim
         
     def forward(self, x, hidden):
@@ -37,12 +37,12 @@ class RNNLM(nn.Module):
         return torch.zeros(1, batch_size, self.rnn.hidden_size).to(device)
 
 class LSTMLM(nn.Module):
-    def __init__(self, vocab_size, embed_dim, hidden_dim):
-        super().__init__()
+    def _init_(self, vocab_size, embed_dim, hidden_dim, dropout=0.5):
+        super()._init_()
         self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=1)
         self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
         self.hidden_dim = hidden_dim
         
     def forward(self, x, hidden):

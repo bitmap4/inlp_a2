@@ -97,7 +97,7 @@ def calculate_perplexity(model, data_loader, device, model_type):
     perplexity = torch.exp(torch.tensor(avg_nll)).item()
     return perplexity
 
-def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidden_dim=128, epochs=10, val_split=0.1):
+def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidden_dim=128, epochs=10, val_split=0.1, dropout=0.5):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
@@ -143,11 +143,11 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     
     if model_type == 'f':
-        model = FFNNLM(vocab_size, embed_dim, hidden_dim, context_size)
+        model = FFNNLM(vocab_size, embed_dim, hidden_dim, context_size, dropout)
     elif model_type == 'r':
-        model = RNNLM(vocab_size, embed_dim, hidden_dim)
+        model = RNNLM(vocab_size, embed_dim, hidden_dim, dropout)
     elif model_type == 'l':
-        model = LSTMLM(vocab_size, embed_dim, hidden_dim)
+        model = LSTMLM(vocab_size, embed_dim, hidden_dim, dropout)
     
     # Store model parameters
     model_params = {
@@ -248,8 +248,9 @@ def train_model(corpus_path, model_type="f", context_size=3, embed_dim=100, hidd
         'best_val_loss': best_val_loss,
         'test_perplexity': test_perplexity,
         'hidden_dim': hidden_dim if model_type != 'f' else None,
-        'embed_dim': embed_dim if model_type != 'f' else None
-    }, f"models/{model_type}_{context_size}_{corpus_name}.pt")
+        'embed_dim': embed_dim if model_type != 'f' else None,
+        'dropout': dropout
+    }, f"models/{model_type}{'_'+str(context_size) if model_type=='f' else ''}_{corpus_name}.pt")
 
 if __name__ == "__main__":
     import argparse
@@ -258,8 +259,9 @@ if __name__ == "__main__":
     parser.add_argument("model_type", choices=['f', 'r', 'l'], help="Model type: f for FFNN, r for RNN, l for LSTM")
     parser.add_argument("-n", "--context_size", type=int, default=3, help="Size of context for model training")
     parser.add_argument("-e", "--embed_dim", type=int, default=100, help="Embedding dimension")
-    parser.add_argument("-d", "--hidden_dim", type=int, default=128, help="Hidden dimension")
+    parser.add_argument("-hd", "--hidden_dim", type=int, default=128, help="Hidden dimension")
     parser.add_argument("-ep", "--epochs", type=int, default=10, help="Number of epochs")
+    parser.add_argument("-d", "--dropout", type=float, default=0.5, help="Dropout rate")
     args = parser.parse_args()
     
-    train_model(args.corpus_path, args.model_type, args.context_size, args.embed_dim, args.hidden_dim, args.epochs)
+    train_model(args.corpus_path, args.model_type, args.context_size, args.embed_dim, args.hidden_dim, args.epochs, args.dropout)
